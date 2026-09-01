@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
@@ -18,7 +19,6 @@ type Config struct{
 	Storagepath string `yaml:"storage_path" env-required:"true"`
 	HTTPServer `yaml:"http_server"`
 }
-
 
 func MustLoad() *Config{
 	var configpath string

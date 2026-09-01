@@ -2,7 +2,10 @@ package main
 
 import (
 	"GO-API/internal/config"
+	"GO-API/internal/config/http/handler/student"
+	"GO-API/internal/storage/sqlite"
 	"context"
+
 	//"fmt"
 	"log"
 	"log/slog"
@@ -13,17 +16,22 @@ import (
 	"time"
 )
 
-func main(){
+func main() {
 	//load setup
-	cfg:=config.MustLoad()
+	cfg := config.MustLoad()
 
-	//database setup
+	// database setups
+	storage, err := sqlite.New(cfg)
+	if err != nil {
+		log.Fatal("failed to connect to database", err)
+	}
+
+	slog.Info("storage initialized", slog.String("env", cfg.Env), slog.String("version", "1.0.0"))
+
 	//setup router
 	router := http.NewServeMux()
 
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to projAPI"))
-	})
+	router.Handle("/api/students", student.New(storage))
 	//setup server
 
 	server := http.Server{
@@ -31,34 +39,30 @@ func main(){
 		Handler: router,
 	}
 
+	slog.Info("server started", slog.String("address", cfg.Address))
 
-	slog.Info("server started ",slog.String("address ",cfg.Address))
-	
+	done := make(chan os.Signal, 1)
 
-	done:=make(chan os.Signal,1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	signal.Notify(done,os.Interrupt,syscall.SIGINT,syscall.SIGALRM)
-
-
-	go func(){
+	go func() {
 		err := server.ListenAndServe()
-	if err!=nil{
-		log.Fatal("failed to start server")
-	}
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal("failed to start server", err)
+		}
 	}()
-	
+
 	<-done
 
 	//gracefull shutdown
 	slog.Info("shutting down the server ")
 
-	ctx,cancel:=context.WithTimeout(context.Background(),5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if err := server.Shutdown(ctx); err != nil {
 
-	if err:=server.Shutdown(ctx); err != nil {
-	
-		slog.Error("failed to shutdown server", slog.String("error",err.Error()))
+		slog.Error("failed to shutdown server", slog.String("error", err.Error()))
 	}
 	slog.Info("shutdown successfully")
 
