@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -46,5 +47,28 @@ func New(stor storage.Storage) http.HandlerFunc {
 		}
 
 		response.WriteJson(w, http.StatusCreated, map[string]string{"ID": fmt.Sprint(lastID)})
+	}
+}
+
+func GetByID(stor storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Implementation for getting a student by ID will go here
+		id := r.PathValue("id") // Assuming you have a way to extract the ID from the URL path
+		slog.Info("gettint a student", slog.String("userID", id))
+
+		intid, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			slog.Error("error geting user", slog.String("id", id))
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(errors.New("invalid student ID")))
+			return
+		}
+
+		student, err := stor.GetstudentByID(intid)
+		if err != nil {
+			slog.Error("error geting user", slog.String("id", id))
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+		response.WriteJson(w, http.StatusOK, student)
 	}
 }
